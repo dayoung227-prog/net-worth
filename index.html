@@ -127,6 +127,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .sum3 .dark .small { color: var(--hero-muted); }
 
 .btn { min-height: 52px; border-radius: 14px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 16px; width: 100%; }
+.btn:disabled { opacity: .45; cursor: default; }
 .btn.ghost { background: var(--surface-2); color: var(--ink); }
 .btn.danger { background: none; color: var(--down); border: 1px solid var(--line); font-weight: 600; font-size: 14px; min-height: 46px; }
 .btn.danger.armed { background: var(--down); color: var(--on-accent); border-color: var(--down); }
@@ -196,7 +197,12 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
           <span class="lb">항목</span>
           <div class="chips" id="catChips"></div>
         </div>
-        <div class="field">
+        <div class="field" id="targetBox" hidden>
+          <span class="lb">이미 있는 항목이면 골라 주세요</span>
+          <div class="chips" id="targetList"></div>
+          <span class="small" id="targetHint"></span>
+        </div>
+        <div class="field" id="nameBox">
           <label for="f-name">이름</label>
           <input class="text-in" id="f-name" type="text" maxlength="30" autocomplete="off">
         </div>
@@ -507,7 +513,13 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   function renderAll() { renderMonthNav(); renderHome(); renderAssets(); }
 
   // ---------- add form ----------
-  var fType = 'asset', fCat = CATS.asset[0];
+  var fType = 'asset', fCat = CATS.asset[0], fTarget = 'new';
+  function norm(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+  function existingIn(kind, cat) { return state.accounts.filter(function (a) { return a.kind === kind && a.cat === cat; }); }
+  function defaultTarget() {
+    if (fType !== 'asset' && fType !== 'debt') return 'new';
+    var ex = existingIn(fType, fCat); return ex.length ? ex[0].id : 'new';
+  }
   var HINTS = {
     asset: ['현재 잔액·평가금액', '그 달 말일 기준 잔액을 넣어 주세요. 다음 달부터는 바뀐 항목만 고치면 돼요.', '예: 급여 통장, 청년적금'],
     debt: ['남은 원금', '부채는 순자산에서 빠져요.', '예: 마이너스통장'],
@@ -521,9 +533,23 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
     document.getElementById('amountHint').textContent = HINTS[fType][1];
     document.getElementById('f-name').placeholder = HINTS[fType][2];
     document.getElementById('repeatBox').hidden = !(fType === 'income' || fType === 'expense');
+    var isBal = fType === 'asset' || fType === 'debt';
+    var ex = isBal ? existingIn(fType, fCat) : [];
+    var box = document.getElementById('targetBox');
+    box.hidden = !ex.length;
+    if (ex.length) {
+      document.getElementById('targetList').innerHTML = ex.map(function (a) {
+        return '<button type="button" data-target="' + a.id + '" aria-pressed="' + (fTarget === a.id) + '">' + esc(a.name) + '</button>';
+      }).join('') + '<button type="button" data-target="new" aria-pressed="' + (fTarget === 'new') + '">+ 새 항목</button>';
+      var picked = ex.find(function (a) { return a.id === fTarget; });
+      document.getElementById('targetHint').textContent = picked
+        ? '‘' + picked.name + '’의 금액이 이 달 금액으로 바뀌어요. 지난달 금액과 더해지지 않아요.'
+        : '새 통장·계좌처럼 따로 더해야 하는 항목일 때만 고르세요.';
+    }
+    document.getElementById('nameBox').hidden = fTarget !== 'new';
   }
   function resetForm(type) {
-    fType = type || fType; fCat = CATS[fType][0];
+    fType = type || fType; fCat = CATS[fType][0]; fTarget = defaultTarget();
     document.getElementById('f-name').value = '';
     document.getElementById('f-amount').value = '';
     document.getElementById('f-month').value = selM;
@@ -533,12 +559,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
     renderForm();
   }
   document.getElementById('typeSeg').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return; fType = b.dataset.type; fCat = CATS[fType][0];
+    var b = e.target.closest('button'); if (!b) return; fType = b.dataset.type; fCat = CATS[fType][0]; fTarget = defaultTarget();
     document.getElementById('f-repeat').checked = fType === 'income';
     renderForm();
   });
   document.getElementById('catChips').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return; fCat = b.dataset.cat; renderForm();
+    var b = e.target.closest('button'); if (!b) return; fCat = b.dataset.cat; fTarget = defaultTarget(); renderForm();
+  });
+  document.getElementById('targetList').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return; fTarget = b.dataset.target; renderForm();
   });
   function bindComma(input) {
     input.addEventListener('input', function () { var n = parseWon(input.value); input.value = n ? comma(n) : ''; });
@@ -553,8 +582,11 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
     if (!/^\d{4}-\d{2}$/.test(month)) { err.textContent = '기준 월을 골라 주세요.'; return; }
     if (month > NOW_M) { err.textContent = '앞으로의 달은 입력할 수 없어요. 이번 달까지 골라 주세요.'; return; }
     if (fType === 'asset' || fType === 'debt') {
-      if (!name) name = fCat;
-      var exist = state.accounts.find(function (a) { return a.kind === fType && a.name === name && a.cat === fCat; });
+      var exist = fTarget !== 'new' ? state.accounts.find(function (a) { return a.id === fTarget; }) : null;
+      if (!exist) {
+        if (!name) name = fCat;
+        exist = state.accounts.find(function (a) { return a.kind === fType && norm(a.name) === norm(name); });
+      }
       if (exist) { state.balances[exist.id] = state.balances[exist.id] || {}; state.balances[exist.id][month] = amt; }
       else { var id = uid('a'); state.accounts.push({ id: id, kind: fType, cat: fCat, name: name }); state.balances[id] = {}; state.balances[id][month] = amt; }
     } else {
@@ -586,10 +618,12 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
       '<div class="field"><label for="s-name">이름</label><input class="text-in" id="s-name" type="text" maxlength="30" value="' + esc(a.name) + '"></div>' +
       '<button class="btn" data-s="save-acc">' + mShort(selM) + ' 금액 저장</button>' +
       (b.from === selM && Object.keys(state.balances[a.id] || {}).length > 1 ? '<button class="btn ghost" data-s="undo-month">' + mShort(selM) + ' 입력 취소 (지난 금액으로)</button>' : '') +
+      (state.accounts.some(function (x) { return x.id !== a.id && x.kind === a.kind; }) ? '<button class="btn ghost" data-s="merge">같은 항목과 합치기</button>' : '') +
       '<button class="btn danger" data-s="del-acc">이 항목 삭제</button>');
     bindComma(document.getElementById('s-amt'));
     sheet.onclick = function (e) {
       var t = e.target.closest('[data-s]'); if (!t) return;
+      if (t.dataset.s === 'merge') return sheetMerge(a.id);
       if (t.dataset.s === 'save-acc') {
         state.balances[a.id] = state.balances[a.id] || {};
         state.balances[a.id][selM] = parseWon(document.getElementById('s-amt').value);
@@ -603,6 +637,44 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
         closeSheet(); save('삭제했어요');
       }
     };
+  }
+
+  // 같은 통장을 두 번 등록했을 때: from의 월별 금액을 into로 옮기고 from은 지움 (같은 달은 from 금액이 우선)
+  function mergeAccounts(fromId, intoId) {
+    var fb = state.balances[fromId] || {}, ib = state.balances[intoId] = state.balances[intoId] || {};
+    Object.keys(fb).forEach(function (m) { ib[m] = fb[m]; });
+    state.accounts = state.accounts.filter(function (x) { return x.id !== fromId; });
+    delete state.balances[fromId];
+  }
+  function sheetMerge(id) {
+    var a = state.accounts.find(function (x) { return x.id === id; }); if (!a) return;
+    var others = state.accounts.filter(function (x) { return x.id !== a.id && x.kind === a.kind; });
+    var into = null;
+    openSheet('<h2>같은 항목과 합치기</h2><p style="margin:0;color:var(--muted);line-height:1.6">‘' + esc(a.name) + '’와 같은 통장·자산을 골라 주세요. 두 항목의 월별 기록이 하나로 합쳐지고, 금액이 두 번 더해지지 않아요.</p>' +
+      '<div class="chips" id="mergeList">' + others.map(function (x) { return '<button type="button" data-into="' + x.id + '" aria-pressed="false">' + esc(x.name) + '</button>'; }).join('') + '</div>' +
+      '<button class="btn" data-s="do" disabled>합치기</button><button class="btn ghost" data-s="cancel">취소</button>');
+    sheet.onclick = function (e) {
+      var c = e.target.closest('[data-into]');
+      if (c) {
+        into = c.dataset.into;
+        sheet.querySelectorAll('[data-into]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === c)); });
+        var go = sheet.querySelector('[data-s="do"]'); go.disabled = false;
+        go.textContent = '‘' + c.textContent + '’로 합치기';
+        return;
+      }
+      var t = e.target.closest('[data-s]'); if (!t) return;
+      if (t.dataset.s === 'cancel') return closeSheet();
+      if (t.dataset.s === 'do' && into) { mergeAccounts(a.id, into); closeSheet(); save('하나로 합쳤어요'); }
+    };
+  }
+  // 이름이 띄어쓰기만 다른 같은 종류 항목은 열 때 자동으로 하나로 합침
+  function autoMerge() {
+    var seen = {}, changed = false;
+    state.accounts.slice().forEach(function (a) {
+      var k = a.kind + '|' + a.cat + '|' + norm(a.name);
+      if (seen[k]) { mergeAccounts(a.id, seen[k]); changed = true; } else seen[k] = a.id;
+    });
+    return changed;
   }
 
   function sheetFlow(id) {
@@ -692,7 +764,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
     else if (a === 'import') document.getElementById('importFile').click();
   });
 
-  var local = loadLocal(); if (local) state = local;
+  var local = loadLocal(); if (local) { state = local; if (autoMerge()) saveLocal(); }
   renderAll(); resetForm('asset');
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
