@@ -1,5 +1,5 @@
 // 오프라인에서도 앱이 열리도록 기본 파일을 캐시합니다. 파일을 고치면 CACHE 이름의 숫자를 올려 주세요.
-var CACHE = 'networth-v4';
+var CACHE = 'networth-v5';
 var FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
@@ -10,10 +10,10 @@ self.addEventListener('activate', function (e) {
     return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
   }).then(function () { return self.clients.claim(); }));
 });
-// 네트워크를 먼저 쓰고, 안 되면 캐시로 엽니다 (업데이트가 바로 반영되도록).
+// 네트워크를 먼저 쓰고(브라우저 캐시도 확인), 안 되면 캐시로 엽니다 — 새 버전이 바로 반영되도록.
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).then(function (res) {
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(function (res) {
     if (res.ok && new URL(e.request.url).origin === location.origin) {
       var copy = res.clone(); caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
     }
