@@ -1,5 +1,5 @@
 // 오프라인에서도 앱이 열리도록 기본 파일을 캐시합니다. 파일을 고치면 CACHE 이름의 숫자를 올려 주세요.
-var CACHE = 'networth-v3';
+var CACHE = 'networth-v4';
 var FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {

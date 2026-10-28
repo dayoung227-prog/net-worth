@@ -120,7 +120,8 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .group-head { display: flex; align-items: center; gap: 8px; }
 .group-head h3 { font-size: 16px; font-weight: 700; flex: 1; }
 .group-head b { font-size: 15px; }
-.sum3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sum3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sum3 > .dark { grid-column: 1 / -1; }
 .sum3 > div { background: var(--surface); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .sum3 b { font-size: 14px; overflow-wrap: anywhere; }
 .sum3 .dark { background: var(--hero-bg); color: var(--hero-fg); }
@@ -274,7 +275,12 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   // ---------- money helpers ----------
   function parseWon(s) { var d = String(s || '').replace(/[^\d]/g, ''); return d ? Number(d) : 0; }
   function comma(n) { return Math.round(n).toLocaleString('ko-KR'); }
+  // 화면 표시는 원 단위까지 정확하게 (예: 151,000원)
   function fmt(won) {
+    return (won < 0 ? '−' : '') + comma(Math.abs(won)) + '원';
+  }
+  // 도넛 가운데처럼 좁은 곳에서만 쓰는 짧은 표기
+  function fmtShort(won) {
     var neg = won < 0, a = Math.abs(won), out;
     if (a < 10000) out = comma(a) + '원';
     else {
@@ -449,7 +455,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
       var shown = gsum.filter(function (x) { return x.v > 0; });
       shown.forEach(function (x) { var a0 = acc / tot * 100; acc += x.v; stops.push(x.g.color + ' ' + a0.toFixed(2) + '% ' + (acc / tot * 100).toFixed(2) + '%'); });
       h += '<section class="card"><div class="card-head"><h2>자산 구성</h2><button class="linkbtn" data-tab-go="assets">전체 보기</button></div><div class="donut-wrap">' +
-        '<div class="donut" role="img" aria-label="자산 구성 비율" style="background:conic-gradient(' + stops.join(',') + ')"><div><span class="small">총자산</span><b>' + fmt(tot) + '</b></div></div><div class="legend-list">';
+        '<div class="donut" role="img" aria-label="자산 구성 비율" style="background:conic-gradient(' + stops.join(',') + ')"><div><span class="small">총자산</span><b>' + fmtShort(tot) + '</b></div></div><div class="legend-list">';
       shown.forEach(function (x) { h += '<div><i class="sw" style="background:' + x.g.color + '"></i><span class="n">' + x.g.name + '</span><b>' + Math.round(x.v / tot * 100) + '%</b></div>'; });
       h += '</div></div></section>';
     }
