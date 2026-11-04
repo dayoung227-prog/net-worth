@@ -404,7 +404,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
       '<span class="label">' + mLabel(selM) + ' 순자산 (자산 − 부채)</span>' +
       '<span class="big">' + (t.has ? fmt(t.net) : '기록 없음') + '</span>' +
       '<span class="chg" style="color:' + (diff === null ? 'var(--hero-muted)' : diff >= 0 ? 'var(--hero-up)' : 'var(--down-bar)') + '">' + (diff === null ? '전월 기록 없음' : chgHtml(diff) + ' · 전월 대비') + '</span></div>' +
-      '<div class="tiles"><div class="tile"><span>총자산</span><span>' + fmt(t.assets) + '</span></div><div class="tile"><span>부채</span><span>' + fmt(t.debts) + '</span></div></div>';
+      '<div class="tiles"><div class="tile"><span>총자산</span><span>' + fmt(t.assets) + '</span></div><div class="tile"><span>' + mShort(selM) + ' 수입</span><span>' + fmt(flowsIn(selM).reduce(function (s, f) { return f.kind === 'income' ? s + f.amount : s; }, 0)) + '</span></div></div>';
     if (state.goal > 0) {
       var pct = Math.max(0, Math.min(100, Math.round(t.net / state.goal * 100)));
       h += '<button class="goal" data-action="edit-goal" aria-label="목표 수정"><div class="goal-row" style="width:100%"><span>' + selM.slice(0, 4) + '년 목표 ' + fmt(state.goal) + '</span><span style="color:var(--hero-fg);font-weight:600">' + pct + '%</span></div><div class="track" style="width:100%"><div style="width:' + pct + '%"></div></div></button>';
