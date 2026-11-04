@@ -482,7 +482,9 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   function renderAssets() {
     var el = document.getElementById('view-assets');
     var t = totals(selM), pm = addM(selM, -1);
-    var h = '<div class="sum3"><div><span class="small">총자산</span><b>' + fmt(t.assets) + '</b></div><div><span class="small">부채</span><b class="dn-t">' + fmt(t.debts) + '</b></div><div class="dark"><span class="small">순자산</span><b>' + fmt(t.net) + '</b></div></div>';
+    // 수입은 이번 달 들어온 돈을 보여주기만 하고 총자산·순자산에는 더하지 않음
+    var monthIncome = flowsIn(selM).reduce(function (s, f) { return f.kind === 'income' ? s + f.amount : s; }, 0);
+    var h = '<div class="sum3"><div><span class="small">총자산</span><b>' + fmt(t.assets) + '</b></div><div><span class="small">' + mShort(selM) + ' 수입</span><b class="up-t">' + fmt(monthIncome) + '</b></div><div class="dark"><span class="small">순자산' + (t.debts ? ' (부채 ' + fmt(t.debts) + ' 차감)' : '') + '</span><b>' + fmt(t.net) + '</b></div></div>';
     // 해지·만기로 0원이 된 항목은 그 다음 달부터 목록에서 숨김
     var list = state.accounts.filter(function (a) { if (!active(a, selM)) return false; var x = balAt(a, selM); return !(x.value === 0 && x.from < selM); });
     if (!list.length) {
